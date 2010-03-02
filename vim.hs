@@ -141,5 +141,3 @@ main = do runCommand clearScreen
           --a <- wait 50000000
           --print $ show a
           --putStr "\ESCM"
- 
-haqify s = "Haq! " ++ s
