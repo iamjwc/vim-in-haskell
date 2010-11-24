@@ -18,7 +18,7 @@ clearScreen :: String
 clearScreen = escapeCode "[2J"
 
 cursorToHome :: String
-cursorToHome = escapeCode "[1;1f"
+cursorToHome = cursorToPos 1 1
 
 cursorToPos :: Int -> Int -> String
 cursorToPos x y = escapeCode "[" ++ (show y) ++ ";" ++ (show x) ++ "f"
@@ -72,7 +72,7 @@ splitBefore 0 arr = ([],arr)
 splitBefore n arr = splitAt n arr
 
 modifyLine :: Line -> Position -> Char -> (Lines, Position)
-modifyLine l (x,y) '\n' = ([start, end], (0,y+1))
+modifyLine l (x,y) '\n' = ([start, end], (1,y+1))
                           where start = fst splitLine
                                 end   = snd splitLine
                                 splitLine = splitAt x l
@@ -109,35 +109,44 @@ updateScreen ls (x,y) = do runCommand clearScreen
                            runCommand $ cursorToPos x y
 
 insertMode :: Lines -> Position -> IO ()
-insertMode ls cursorPos = do input <- getCh
+insertMode ls cursorPos = do updateScreen ls cursorPos
+                             input <- getCh
                              case input of
                                '\ESC'    -> commandMode ls cursorPos
                                otherwise -> do let (newLines, (newX, newY)) = modifyLines ls cursorPos input
-                                               updateScreen ls (newX, newY)
                                                insertMode newLines (newX, newY)
 
+isCommandFinished :: String -> Bool
+isCommandFinished cmd = elem (head cmd) "hjkli"
+
+
+getCommand :: String -> IO String
+getCommand cmd
+  | isCommandFinished cmd = return cmd
+  | otherwise             = do input <- getCh
+                               case input of
+                                 '\ESC' -> return ""
+                                 _      -> getCommand (cmd ++ [input])
+
+processCommand :: String -> Lines -> Position -> IO ()
+processCommand "h" ls (x,y) = commandMode ls ((max (x-1) 1), y)
+processCommand "k" ls (x,y) = commandMode ls (x, (max (y-1) 1))
+processCommand "l" ls (x,y) = commandMode ls (x+1, y)
+processCommand "j" ls (x,y) = commandMode ls (x, y+1)
+processCommand "i" ls (x,y) = insertMode ls (x,y)
+processCommand o   ls (x,y) = commandMode ls (x,y)
+
 commandMode :: Lines -> Position -> IO ()
-commandMode ls (x,y) = do input <- getCh
-                          updateScreen ls (x, y)
-                          case input of
-                            'l' -> commandMode ls ((max (x-1) 0), y)
-                            'k' -> commandMode ls (x, (max (y-1) 0))
-                            'h' -> commandMode ls (x+1, y)
-                            'j' -> commandMode ls (x, y+1)
-                            'i' -> insertMode ls (x,y)
-                            o   -> commandMode ls (x,y)
+commandMode ls pos = do updateScreen ls pos
+                        cmd <- getCommand ""
+                        processCommand cmd ls pos
 
  
 -- | 'main' runs the main program
 main :: IO ()
 main = do runCommand clearScreen 
-          --runCommand $ escapeCode "[6n"
           runCommand cursorToHome
-          --runCommand $ escapeCode "[6n"
-          hSetBuffering stdin NoBuffering --runCommand clearScreen
-          hSetBuffering stdout NoBuffering --runCommand clearScreen
+          hSetBuffering stdin NoBuffering
+          hSetBuffering stdout NoBuffering
           insertMode [""] (1,1)
-          --putStr "hey\nyou\nblah"
-          --a <- wait 50000000
-          --print $ show a
-          --putStr "\ESCM"
+
