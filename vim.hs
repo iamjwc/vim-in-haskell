@@ -36,14 +36,6 @@ scrollCode Up   = escapeCode "M"
 scrollCode Down = escapeCode "D"
 scrollCode _    = "\BEL"
 
-seqn :: [IO a] -> IO ()
-seqn []     = return ()
-seqn (a:as) = do a
-                 seqn as
-
-wait :: Int -> IO ()
-wait n = seqn [return () | _ <- [1..n]]
-
 beforeLines :: (Lines, Line, Lines) -> Lines
 beforeLines (b, c, a) = b
 
