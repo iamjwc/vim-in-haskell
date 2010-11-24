@@ -80,10 +80,7 @@ modifyLines lines (x,y) char
   | (isControl char) && (char /= '\n') = (lines, (x,y))
 --  | not (isAlphaNum char) = (lines, (x,y))
   | otherwise             = (bef ++ modifyLines ++ aft, pos)
-                            where splitLines = beforeAndAfter lines y
-                                  bef = beforeLines splitLines
-                                  cur = currentLine splitLines
-                                  aft = afterLines  splitLines
+                            where (bef, cur, aft) = beforeAndAfter lines y
                                   modify      = modifyLine cur (x,y) char
                                   modifyLines = fst modify
                                   pos         = snd modify
@@ -111,7 +108,7 @@ insertMode ls cursorPos = do updateScreen ls cursorPos
 isCommandFinished :: String -> Bool
 isCommandFinished ""   = False
 isCommandFinished "dd" = True
-isCommandFinished cmd  = elem (head cmd) "hjklioaA"
+isCommandFinished cmd  = elem (head cmd) "hjklioaA0$"
 
 
 getCommand :: String -> IO String
@@ -143,6 +140,11 @@ processCommand "h"  ls (x,y) = (Command, ls, ((max (x-1) 1), y))
 processCommand "k"  ls (x,y) = (Command, ls, (x, (max (y-1) 1)))
 processCommand "l"  ls (x,y) = (Command, ls, (x+1, y))
 processCommand "j"  ls (x,y) = (Command, ls, (x, y+1))
+
+processCommand "0"  ls (x,y) = (Command, ls, (1,y))
+processCommand "$"  ls (x,y) = (Command, ls, newPos)
+                               where currentLine = ls !! (y-1)
+                                     newPos      = (length currentLine, y)
 
 processCommand "i"  ls pos   = (Insert, ls, pos)
 processCommand "o"  ls (x,y) = (Insert, ls, (x,y+1))
