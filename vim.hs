@@ -109,31 +109,58 @@ insertMode ls cursorPos = do updateScreen ls cursorPos
                                                insertMode newLines (newX, newY)
 
 isCommandFinished :: String -> Bool
+isCommandFinished ""   = False
 isCommandFinished "dd" = True
-isCommandFinished cmd  = elem (head cmd) "hjkli"
+isCommandFinished cmd  = elem (head cmd) "hjklioaA"
 
 
 getCommand :: String -> IO String
 getCommand cmd
-  | isCommandFinished cmd = return cmd
+  | isCommandFinished cmd = do return cmd
   | otherwise             = do input <- getCh
                                case input of
                                  '\ESC' -> return ""
                                  _      -> getCommand (cmd ++ [input])
 
+deleteLine :: Lines -> Position -> (Lines, Position)
+deleteLine ls (x,y)
+  -- If there are no lines
+  | (length ls) == 0 = (ls,(x,y))
+  -- If trying to delete the last line
+  | y == (length ls)  = (init ls, (x,y-1))
+  -- first line
+  | y == 0           = (tail ls, (x,y))
+  | otherwise        = (init before ++ after, (x,y))
+                       where (before,after) = splitBefore y ls
+
+
+
+
 processCommand :: String -> Lines -> Position -> IO ()
-processCommand "dd" ls (x,y) = commandMode ls ((max (x-1) 1), y)
+processCommand "dd" ls pos   = commandMode newLs newPos
+                               where (newLs, newPos) = deleteLine ls pos
 processCommand "h"  ls (x,y) = commandMode ls ((max (x-1) 1), y)
 processCommand "k"  ls (x,y) = commandMode ls (x, (max (y-1) 1))
 processCommand "l"  ls (x,y) = commandMode ls (x+1, y)
 processCommand "j"  ls (x,y) = commandMode ls (x, y+1)
-processCommand "i"  ls (x,y) = insertMode ls (x,y)
 processCommand o    ls (x,y) = commandMode ls (x,y)
+
+-- lineAtCurrentPos :: Lines -> Position -> Line
+-- lineAtCurrentPos
 
 commandMode :: Lines -> Position -> IO ()
 commandMode ls pos = do updateScreen ls pos
                         cmd <- getCommand ""
-                        processCommand cmd ls pos
+                        case cmd of
+                          "i" -> insertMode ls pos
+                          "o" -> insertMode ls (x,y+1)
+                                 where (x,y) = pos
+                          "a" -> insertMode ls (x+1,y)
+                                 where (x,y) = pos
+                          "A" -> insertMode ls ((length currentLine) + 1,y)
+                                 where (x,y) = pos
+                                       currentLine = ls !! (y-1)
+                          _   -> processCommand cmd ls pos
 
  
 -- | 'main' runs the main program
@@ -142,5 +169,5 @@ main = do runCommand clearScreen
           runCommand cursorToHome
           hSetBuffering stdin NoBuffering
           hSetBuffering stdout NoBuffering
-          insertMode [""] (1,1)
+          commandMode [""] (1,1)
 
