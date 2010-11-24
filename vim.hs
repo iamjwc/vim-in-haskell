@@ -36,30 +36,12 @@ scrollCode Up   = escapeCode "M"
 scrollCode Down = escapeCode "D"
 scrollCode _    = "\BEL"
 
-beforeLines :: (Lines, Line, Lines) -> Lines
-beforeLines (b, c, a) = b
-
-afterLines :: (Lines, Line, Lines) -> Lines
-afterLines (b, c, a) = a
-
-currentLine :: (Lines, Line, Lines) -> Line
-currentLine (b, c, a) = c
-
 beforeAndAfter :: [a] -> Int -> ([a], a, [a])
 beforeAndAfter items n
-  | length items >= n = (before, current, after)
-                        where before     = init $ start
-                              after      = end
-                              current    = last $ start
-                              (start, end) = splitBefore n items
+  | length items >= n = (init start, end, last start)
+                        where (start, end) = splitBefore n items
 
 splitBefore :: Int -> [a] -> ([a],[a])
---splitBefore n arr
---  | length arr < 2 = (arr, [])
---  | otherwise      = (start, end)
---                     where splitArr = splitAt n arr
---                           start    = init $ fst splitArr
---                           end      = [(last $ fst splitArr)] ++ snd splitArr
 splitBefore 0 arr = ([],arr)
 splitBefore n arr = splitAt n arr
 
@@ -78,7 +60,6 @@ insertCharacterInDocument :: Lines -> Position -> Char -> (Lines, Position)
 insertCharacterInDocument [] pos char = insertCharacterInDocument [""] pos char
 insertCharacterInDocument lines (x,y) char
   | (isControl char) && (char /= '\n') = (lines, (x,y))
---  | not (isAlphaNum char) = (lines, (x,y))
   | otherwise             = (bef ++ insertCharacterInDocument ++ aft, pos)
                             where (bef, cur, aft) = beforeAndAfter lines y
                                   modify      = insertCharacterInLine cur (x,y) char
