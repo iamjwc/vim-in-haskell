@@ -38,7 +38,7 @@ scrollCode _    = "\BEL"
 
 beforeAndAfter :: [a] -> Int -> ([a], a, [a])
 beforeAndAfter items n
-  | length items >= n = (init start, end, last start)
+  | length items >= n = (init start, last start, end)
                         where (start, end) = splitBefore n items
 
 splitBefore :: Int -> [a] -> ([a],[a])
