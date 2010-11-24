@@ -63,26 +63,26 @@ splitBefore :: Int -> [a] -> ([a],[a])
 splitBefore 0 arr = ([],arr)
 splitBefore n arr = splitAt n arr
 
-modifyLine :: Line -> Position -> Char -> (Lines, Position)
-modifyLine l (x,y) '\n' = ([start, end], (1,y+1))
+insertCharacterInLine :: Line -> Position -> Char -> (Lines, Position)
+insertCharacterInLine l (x,y) '\n' = ([start, end], (1,y+1))
                           where start = fst splitLine
                                 end   = snd splitLine
                                 splitLine = splitAt x l
-modifyLine l (x,y) c    = ([start ++ [c] ++ end], (x+1,y))
+insertCharacterInLine l (x,y) c    = ([start ++ [c] ++ end], (x+1,y))
                           where start = fst splitLine
                                 end   = snd splitLine
                                 splitLine = splitBefore x l
 
 
-modifyLines :: Lines -> Position -> Char -> (Lines, Position)
-modifyLines [] pos char = modifyLines [""] pos char
-modifyLines lines (x,y) char
+insertCharacterInDocument :: Lines -> Position -> Char -> (Lines, Position)
+insertCharacterInDocument [] pos char = insertCharacterInDocument [""] pos char
+insertCharacterInDocument lines (x,y) char
   | (isControl char) && (char /= '\n') = (lines, (x,y))
 --  | not (isAlphaNum char) = (lines, (x,y))
-  | otherwise             = (bef ++ modifyLines ++ aft, pos)
+  | otherwise             = (bef ++ insertCharacterInDocument ++ aft, pos)
                             where (bef, cur, aft) = beforeAndAfter lines y
-                                  modify      = modifyLine cur (x,y) char
-                                  modifyLines = fst modify
+                                  modify      = insertCharacterInLine cur (x,y) char
+                                  insertCharacterInDocument = fst modify
                                   pos         = snd modify
 
 getCh :: IO Char
@@ -102,7 +102,7 @@ insertMode ls cursorPos = do updateScreen ls cursorPos
                              input <- getCh
                              case input of
                                '\ESC'    -> commandMode ls cursorPos
-                               otherwise -> do let (newLines, (newX, newY)) = modifyLines ls cursorPos input
+                               otherwise -> do let (newLines, (newX, newY)) = insertCharacterInDocument ls cursorPos input
                                                insertMode newLines (newX, newY)
 
 isCommandFinished :: String -> Bool
