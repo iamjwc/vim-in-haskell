@@ -4,11 +4,11 @@ import Char
 --(isAlphaNum)
 
 data Direction = Up | Down | Left | Right
+data Mode      = Insert | Command
 
 type Line     = String
 type Lines    = [Line]
 type Command  = String
-type Mode     = String
 type Position = (Int, Int)
 
 runCommand :: String -> IO ()
@@ -136,14 +136,22 @@ deleteLine ls (x,y)
 
 
 
-processCommand :: String -> Lines -> Position -> IO ()
-processCommand "dd" ls pos   = commandMode newLs newPos
+processCommand :: String -> Lines -> Position -> (Mode, Lines, Position)
+processCommand "dd" ls pos   = (Command, newLs, newPos)
                                where (newLs, newPos) = deleteLine ls pos
-processCommand "h"  ls (x,y) = commandMode ls ((max (x-1) 1), y)
-processCommand "k"  ls (x,y) = commandMode ls (x, (max (y-1) 1))
-processCommand "l"  ls (x,y) = commandMode ls (x+1, y)
-processCommand "j"  ls (x,y) = commandMode ls (x, y+1)
-processCommand o    ls (x,y) = commandMode ls (x,y)
+processCommand "h"  ls (x,y) = (Command, ls, ((max (x-1) 1), y))
+processCommand "k"  ls (x,y) = (Command, ls, (x, (max (y-1) 1)))
+processCommand "l"  ls (x,y) = (Command, ls, (x+1, y))
+processCommand "j"  ls (x,y) = (Command, ls, (x, y+1))
+
+processCommand "i"  ls pos   = (Insert, ls, pos)
+processCommand "o"  ls (x,y) = (Insert, ls, (x,y+1))
+processCommand "a"  ls (x,y) = (Insert, ls, (x+1,y))
+processCommand "A"  ls (x,y) = (Insert, ls, newPos)
+                               where currentLine = ls !! (y-1)
+                                     newPos      = ((length currentLine)+1, y)
+
+processCommand o    ls pos   = (Command, ls, pos)
 
 -- lineAtCurrentPos :: Lines -> Position -> Line
 -- lineAtCurrentPos
@@ -151,18 +159,11 @@ processCommand o    ls (x,y) = commandMode ls (x,y)
 commandMode :: Lines -> Position -> IO ()
 commandMode ls pos = do updateScreen ls pos
                         cmd <- getCommand ""
-                        case cmd of
-                          "i" -> insertMode ls pos
-                          "o" -> insertMode ls (x,y+1)
-                                 where (x,y) = pos
-                          "a" -> insertMode ls (x+1,y)
-                                 where (x,y) = pos
-                          "A" -> insertMode ls ((length currentLine) + 1,y)
-                                 where (x,y) = pos
-                                       currentLine = ls !! (y-1)
-                          _   -> processCommand cmd ls pos
+                        case processCommand cmd ls pos of
+                          (Insert, newLs, newPos)  -> insertMode newLs newPos
+                          (Command, newLs, newPos) -> commandMode newLs newPos
 
- 
+
 -- | 'main' runs the main program
 main :: IO ()
 main = do runCommand clearScreen 
