@@ -117,7 +117,8 @@ insertMode ls cursorPos = do updateScreen ls cursorPos
                                                insertMode newLines (newX, newY)
 
 isCommandFinished :: String -> Bool
-isCommandFinished cmd = elem (head cmd) "hjkli"
+isCommandFinished "dd" = True
+isCommandFinished cmd  = elem (head cmd) "hjkli"
 
 
 getCommand :: String -> IO String
@@ -129,12 +130,13 @@ getCommand cmd
                                  _      -> getCommand (cmd ++ [input])
 
 processCommand :: String -> Lines -> Position -> IO ()
-processCommand "h" ls (x,y) = commandMode ls ((max (x-1) 1), y)
-processCommand "k" ls (x,y) = commandMode ls (x, (max (y-1) 1))
-processCommand "l" ls (x,y) = commandMode ls (x+1, y)
-processCommand "j" ls (x,y) = commandMode ls (x, y+1)
-processCommand "i" ls (x,y) = insertMode ls (x,y)
-processCommand o   ls (x,y) = commandMode ls (x,y)
+processCommand "dd" ls (x,y) = commandMode ls ((max (x-1) 1), y)
+processCommand "h"  ls (x,y) = commandMode ls ((max (x-1) 1), y)
+processCommand "k"  ls (x,y) = commandMode ls (x, (max (y-1) 1))
+processCommand "l"  ls (x,y) = commandMode ls (x+1, y)
+processCommand "j"  ls (x,y) = commandMode ls (x, y+1)
+processCommand "i"  ls (x,y) = insertMode ls (x,y)
+processCommand o    ls (x,y) = commandMode ls (x,y)
 
 commandMode :: Lines -> Position -> IO ()
 commandMode ls pos = do updateScreen ls pos
