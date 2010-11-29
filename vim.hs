@@ -1,25 +1,18 @@
+import Prelude hiding (Left, Right)
+
 import System.Environment
 import System.IO
 import Char
 --(isAlphaNum)
 
-data Direction = DirectionUp | DirectionDown | DirectionLeft | DirectionRight
+
+import Position
+
 data Mode      = Insert | Command
 
 type Line     = String
 type Lines    = [Line]
 type Command  = String
-
-data Position = Position Int Int
-
-posMove :: Position -> Direction -> Position
-posMove (Position x y) DirectionLeft  = (Position (max (x-1) 1)  y)
-posMove (Position x y) DirectionUp    = (Position x (max (y-1) 1))
-posMove (Position x y) DirectionRight = (Position (x+1) y)
-posMove (Position x y) DirectionDown  = (Position x (y+1))
-
-posSetX :: Position -> Int -> Position
-posSetX (Position _ y) x  = (Position x y)
 
 
 
@@ -46,8 +39,8 @@ escapeCode :: String -> String
 escapeCode = ("\ESC" ++)
 
 scrollCode :: Direction -> String
-scrollCode DirectionUp   = escapeCode "M"
-scrollCode DirectionDown = escapeCode "D"
+scrollCode Up   = escapeCode "M"
+scrollCode Down = escapeCode "D"
 scrollCode _    = "\BEL"
 
 beforeAndAfter :: [a] -> Int -> ([a], a, [a])
@@ -131,10 +124,10 @@ deleteLine ls (Position x y)
 processCommand :: String -> Lines -> Position -> (Mode, Lines, Position)
 processCommand "dd" ls pos   = (Command, newLs, newPos)
                                where (newLs, newPos) = deleteLine ls pos
-processCommand "h"  ls pos = (Command, ls, posMove pos DirectionLeft)
-processCommand "k"  ls pos = (Command, ls, posMove pos DirectionUp)
-processCommand "l"  ls pos = (Command, ls, posMove pos DirectionRight)
-processCommand "j"  ls pos = (Command, ls, posMove pos DirectionDown)
+processCommand "h"  ls pos = (Command, ls, move pos Left)
+processCommand "k"  ls pos = (Command, ls, move pos Up)
+processCommand "l"  ls pos = (Command, ls, move pos Right)
+processCommand "j"  ls pos = (Command, ls, move pos Down)
 
 processCommand "0"  ls (Position x y) = (Command, ls, (Position 1 y))
 processCommand "$"  ls (Position x y) = (Command, ls, newPos)
@@ -142,8 +135,8 @@ processCommand "$"  ls (Position x y) = (Command, ls, newPos)
                                      newPos      = (Position (length currentLine) y)
 
 processCommand "i"  ls pos = (Insert, ls, pos)
-processCommand "o"  ls pos = (Insert, ls, posSetX (posMove pos DirectionDown) 1)
-processCommand "a"  ls pos = (Insert, ls, posMove pos DirectionRight)
+processCommand "o"  ls pos = (Insert, ls, setX (move pos Down) 1)
+processCommand "a"  ls pos = (Insert, ls, move pos Right)
 processCommand "A"  ls (Position x y) = (Insert, ls, newPos)
                                         where currentLine = ls !! (y-1)
                                               newPos      = (Position ((length currentLine)+1)  y)
