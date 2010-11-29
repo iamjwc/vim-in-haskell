@@ -3,13 +3,27 @@ import System.IO
 import Char
 --(isAlphaNum)
 
-data Direction = Up | Down | Left | Right
+data Direction = DirectionUp | DirectionDown | DirectionLeft | DirectionRight
 data Mode      = Insert | Command
 
 type Line     = String
 type Lines    = [Line]
 type Command  = String
-type Position = (Int, Int)
+
+data Position = Position Int Int
+
+posMove :: Position -> Direction -> Position
+posMove (Position x y) DirectionLeft  = (Position (max (x-1) 1)  y)
+posMove (Position x y) DirectionUp    = (Position x (max (y-1) 1))
+posMove (Position x y) DirectionRight = (Position (x+1) y)
+posMove (Position x y) DirectionDown  = (Position x (y+1))
+
+posSetX :: Position -> Int -> Position
+posSetX (Position _ y) x  = (Position x y)
+
+
+
+
 
 runCommand :: String -> IO ()
 runCommand = putStr
@@ -18,10 +32,10 @@ clearScreen :: String
 clearScreen = escapeCode "[2J"
 
 cursorToHome :: String
-cursorToHome = cursorToPos 1 1
+cursorToHome = cursorToPos (Position 1 1)
 
-cursorToPos :: Int -> Int -> String
-cursorToPos x y = escapeCode "[" ++ (show y) ++ ";" ++ (show x) ++ "f"
+cursorToPos :: Position -> String
+cursorToPos (Position x y) = escapeCode "[" ++ (show y) ++ ";" ++ (show x) ++ "f"
 
 scroll :: Direction -> Int -> IO()
 scroll _ 0       = return ()
@@ -32,8 +46,8 @@ escapeCode :: String -> String
 escapeCode = ("\ESC" ++)
 
 scrollCode :: Direction -> String
-scrollCode Up   = escapeCode "M"
-scrollCode Down = escapeCode "D"
+scrollCode DirectionUp   = escapeCode "M"
+scrollCode DirectionDown = escapeCode "D"
 scrollCode _    = "\BEL"
 
 beforeAndAfter :: [a] -> Int -> ([a], a, [a])
@@ -46,23 +60,23 @@ splitBefore 0 arr = ([],arr)
 splitBefore n arr = splitAt n arr
 
 insertCharacterInLine :: Line -> Position -> Char -> (Lines, Position)
-insertCharacterInLine l (x,y) '\n' = ([start, end], (1,y+1))
-                          where start = fst splitLine
-                                end   = snd splitLine
-                                splitLine = splitAt x l
-insertCharacterInLine l (x,y) c    = ([start ++ [c] ++ end], (x+1,y))
-                          where start = fst splitLine
-                                end   = snd splitLine
-                                splitLine = splitBefore x l
+insertCharacterInLine l (Position x y) '\n' = ([start, end], (Position 1 (y+1)))
+                                              where start = fst splitLine
+                                                    end   = snd splitLine
+                                                    splitLine = splitAt x l
+insertCharacterInLine l (Position x y) c    = ([start ++ [c] ++ end], (Position (x+1) y))
+                                              where start = fst splitLine
+                                                    end   = snd splitLine
+                                                    splitLine = splitBefore x l
 
 
 insertCharacterInDocument :: Lines -> Position -> Char -> (Lines, Position)
 insertCharacterInDocument [] pos char = insertCharacterInDocument [""] pos char
-insertCharacterInDocument lines (x,y) char
-  | (isControl char) && (char /= '\n') = (lines, (x,y))
+insertCharacterInDocument lines (Position x y) char
+  | (isControl char) && (char /= '\n') = (lines, (Position x y))
   | otherwise             = (bef ++ insertCharacterInDocument ++ aft, pos)
                             where (bef, cur, aft) = beforeAndAfter lines y
-                                  modify      = insertCharacterInLine cur (x,y) char
+                                  modify      = insertCharacterInLine cur (Position x y) char
                                   insertCharacterInDocument = fst modify
                                   pos         = snd modify
 
@@ -73,18 +87,18 @@ getCh  = do hSetEcho stdin False
             return c
                                   
 updateScreen :: Lines -> Position -> IO ()
-updateScreen ls (x,y) = do runCommand clearScreen 
-                           runCommand cursorToHome
-                           putStr $ unlines ls
-                           runCommand $ cursorToPos x y
+updateScreen ls (Position x y) = do runCommand clearScreen 
+                                    runCommand cursorToHome
+                                    putStr $ unlines ls
+                                    runCommand $ cursorToPos (Position x y)
 
 insertMode :: Lines -> Position -> IO ()
 insertMode ls cursorPos = do updateScreen ls cursorPos
                              input <- getCh
                              case input of
                                '\ESC'    -> commandMode ls cursorPos
-                               otherwise -> do let (newLines, (newX, newY)) = insertCharacterInDocument ls cursorPos input
-                                               insertMode newLines (newX, newY)
+                               otherwise -> do let (newLines, (Position newX newY)) = insertCharacterInDocument ls cursorPos input
+                                               insertMode newLines (Position newX newY)
 
 isCommandFinished :: String -> Bool
 isCommandFinished ""   = False
@@ -101,14 +115,14 @@ getCommand cmd
                                  _      -> getCommand (cmd ++ [input])
 
 deleteLine :: Lines -> Position -> (Lines, Position)
-deleteLine ls (x,y)
+deleteLine ls (Position x y)
   -- If there are no lines
-  | (length ls) == 0 = (ls,(x,y))
+  | (length ls) == 0 = (ls,(Position x y))
   -- If trying to delete the last line
-  | y == (length ls)  = (init ls, (x,y-1))
+  | y == (length ls)  = (init ls, (Position x (y-1)))
   -- first line
-  | y == 0           = (tail ls, (x,y))
-  | otherwise        = (init before ++ after, (x,y))
+  | y == 0           = (tail ls, (Position x y))
+  | otherwise        = (init before ++ after, (Position x y))
                        where (before,after) = splitBefore y ls
 
 
@@ -117,22 +131,22 @@ deleteLine ls (x,y)
 processCommand :: String -> Lines -> Position -> (Mode, Lines, Position)
 processCommand "dd" ls pos   = (Command, newLs, newPos)
                                where (newLs, newPos) = deleteLine ls pos
-processCommand "h"  ls (x,y) = (Command, ls, ((max (x-1) 1), y))
-processCommand "k"  ls (x,y) = (Command, ls, (x, (max (y-1) 1)))
-processCommand "l"  ls (x,y) = (Command, ls, (x+1, y))
-processCommand "j"  ls (x,y) = (Command, ls, (x, y+1))
+processCommand "h"  ls pos = (Command, ls, posMove pos DirectionLeft)
+processCommand "k"  ls pos = (Command, ls, posMove pos DirectionUp)
+processCommand "l"  ls pos = (Command, ls, posMove pos DirectionRight)
+processCommand "j"  ls pos = (Command, ls, posMove pos DirectionDown)
 
-processCommand "0"  ls (x,y) = (Command, ls, (1,y))
-processCommand "$"  ls (x,y) = (Command, ls, newPos)
+processCommand "0"  ls (Position x y) = (Command, ls, (Position 1 y))
+processCommand "$"  ls (Position x y) = (Command, ls, newPos)
                                where currentLine = ls !! (y-1)
-                                     newPos      = (length currentLine, y)
+                                     newPos      = (Position (length currentLine) y)
 
-processCommand "i"  ls pos   = (Insert, ls, pos)
-processCommand "o"  ls (x,y) = (Insert, ls, (x,y+1))
-processCommand "a"  ls (x,y) = (Insert, ls, (x+1,y))
-processCommand "A"  ls (x,y) = (Insert, ls, newPos)
-                               where currentLine = ls !! (y-1)
-                                     newPos      = ((length currentLine)+1, y)
+processCommand "i"  ls pos = (Insert, ls, pos)
+processCommand "o"  ls pos = (Insert, ls, posSetX (posMove pos DirectionDown) 1)
+processCommand "a"  ls pos = (Insert, ls, posMove pos DirectionRight)
+processCommand "A"  ls (Position x y) = (Insert, ls, newPos)
+                                        where currentLine = ls !! (y-1)
+                                              newPos      = (Position ((length currentLine)+1)  y)
 
 processCommand o    ls pos   = (Command, ls, pos)
 
@@ -153,5 +167,5 @@ main = do runCommand clearScreen
           runCommand cursorToHome
           hSetBuffering stdin NoBuffering
           hSetBuffering stdout NoBuffering
-          commandMode [""] (1,1)
+          commandMode [""] (Position 1 1)
 
