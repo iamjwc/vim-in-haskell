@@ -74,6 +74,19 @@ deleteLine ls (Position x y)
                        where (before,after) = splitBefore y ls
 
 
+deleteToEndOfLine :: Lines -> Position -> (Lines, Position)
+deleteToEndOfLine ls (Position x y) = ((startLs ++ [startL] ++ endLs), newPos)
+                           where (startLs, currentL, endLs) = beforeAndAfter ls y
+                                 (startL, _, _) = beforeAndAfter currentL x
+                                 newPos = Position (length startL) y
+
+deleteCharacter :: Lines -> Position -> (Lines, Position)
+deleteCharacter ls (Position x y) = ((startLs ++ [startL ++ endL] ++ endLs), newPos)
+                             where (startLs, currentL, endLs) = beforeAndAfter ls y
+                                   (startL, _, endL) = beforeAndAfter currentL x
+                                   newPos = case endL of
+                                     [] -> Position (length startL) y
+                                     _  -> Position x y
 
 
 processCommand :: String -> Lines -> Position -> (Mode, Lines, Position)
@@ -84,19 +97,11 @@ processCommand "k"  ls pos = (Command, ls, move pos Up)
 processCommand "l"  ls pos = (Command, ls, move pos Right)
 processCommand "j"  ls pos = (Command, ls, move pos Down)
 
-processCommand "x"  ls pos = (Command, (startLs ++ [startL ++ endL] ++ endLs), newPos)
-                             where (Position x y) = pos
-                                   (startLs, currentL, endLs) = beforeAndAfter ls y
-                                   (startL, _, endL) = beforeAndAfter currentL x
-                                   newPos = case endL of
-                                     [] -> setX pos (length startL)
-                                     _  -> pos
+processCommand "x"  ls pos = (Command, newLs, newPos)
+                             where (newLs, newPos) = deleteCharacter ls pos
 
-processCommand "D"  ls pos = (Command, (startLs ++ [startL] ++ endLs), newPos)
-                             where (Position x y) = pos
-                                   (startLs, currentL, endLs) = beforeAndAfter ls y
-                                   (startL, _, _) = beforeAndAfter currentL x
-                                   newPos = setX pos (length startL)
+processCommand "D"  ls pos = (Command, newLs, newPos)
+                             where (newLs, newPos) = deleteToEndOfLine ls pos
 
 processCommand "0"  ls (Position x y) = (Command, ls, (Position 1 y))
 processCommand "$"  ls (Position x y) = (Command, ls, newPos)
