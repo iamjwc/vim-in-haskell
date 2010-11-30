@@ -34,8 +34,7 @@ insertCharacterInLine :: Line -> Position -> Char -> (Lines, Position)
 insertCharacterInLine line pos '\n' = ([start, end], newPos)
                                       where (start, end) = splitAt (getX pos) line
                                             newPos       = (move (setX pos 1) Down)
-insertCharacterInLine line pos char = ([insertAt char insertX line], move pos Right)
-                                      where insertX = (getX pos)-1 -- insert before the cursor
+insertCharacterInLine line pos char = ([insertBefore char (getX pos) line], move pos Right)
 
 
 insertCharacterInDocument :: Lines -> Position -> Char -> (Lines, Position)
