@@ -51,7 +51,7 @@ insertMode ls cursorPos = do updateScreen ls cursorPos
 isCommandFinished :: String -> Bool
 isCommandFinished ""   = False
 isCommandFinished "dd" = True
-isCommandFinished cmd  = elem (head cmd) "hjklioaA0$x"
+isCommandFinished cmd  = elem (head cmd) "hjklioaA0$xD"
 
 
 getCommand :: String -> IO String
@@ -91,6 +91,12 @@ processCommand "x"  ls pos = (Command, (startLs ++ [startL ++ endL] ++ endLs), n
                                    newPos = case endL of
                                      [] -> setX pos (length startL)
                                      _  -> pos
+
+processCommand "D"  ls pos = (Command, (startLs ++ [startL] ++ endLs), newPos)
+                             where (Position x y) = pos
+                                   (startLs, currentL, endLs) = beforeAndAfter ls y
+                                   (startL, _, endL) = beforeAndAfter currentL x
+                                   newPos = setX pos (length startL)
 
 processCommand "0"  ls (Position x y) = (Command, ls, (Position 1 y))
 processCommand "$"  ls (Position x y) = (Command, ls, newPos)
