@@ -18,22 +18,10 @@ data Mode      = Insert | Command
 
 
 
-
-
-beforeAndAfter :: [a] -> Int -> ([a], a, [a])
-beforeAndAfter items n
-  | length items >= n = (init start, last start, end)
-                        where (start, end) = splitBefore n items
-
-splitBefore :: Int -> [a] -> ([a],[a])
-splitBefore 0 arr = ([],arr)
-splitBefore n arr = splitAt n arr
-
-
 insertCharacterInLine :: Line -> Position -> Char -> (Lines, Position)
 insertCharacterInLine line pos '\n' = ([start, end], newPos)
                                       where (start, end) = splitAt (getX pos) line
-                                            newPos       = (move (setX pos 1) Down)
+                                            newPos       = move (setX pos 1) Down
 insertCharacterInLine line pos char = ([insertBefore char (getX pos) line], move pos Right)
 
 
@@ -45,7 +33,7 @@ insertCharacterInDocument lines pos char
                                          where (bef, cur, aft)   = beforeAndAfter lines (getY pos)
                                                (newLine, newPos) = insertCharacterInLine cur pos char
 
-                                  
+
 updateScreen :: Lines -> Position -> IO ()
 updateScreen ls pos = do runCommand clearScreen 
                          runCommand cursorToHome
@@ -63,7 +51,7 @@ insertMode ls cursorPos = do updateScreen ls cursorPos
 isCommandFinished :: String -> Bool
 isCommandFinished ""   = False
 isCommandFinished "dd" = True
-isCommandFinished cmd  = elem (head cmd) "hjklioaA0$"
+isCommandFinished cmd  = elem (head cmd) "hjklioaA0$x"
 
 
 getCommand :: String -> IO String
@@ -95,6 +83,14 @@ processCommand "h"  ls pos = (Command, ls, move pos Left)
 processCommand "k"  ls pos = (Command, ls, move pos Up)
 processCommand "l"  ls pos = (Command, ls, move pos Right)
 processCommand "j"  ls pos = (Command, ls, move pos Down)
+
+processCommand "x"  ls pos = (Command, (startLs ++ [startL ++ endL] ++ endLs), newPos)
+                             where (Position x y) = pos
+                                   (startLs, currentL, endLs) = beforeAndAfter ls y
+                                   (startL, _, endL) = beforeAndAfter currentL x
+                                   newPos = case endL of
+                                     [] -> setX pos (length startL)
+                                     _  -> pos
 
 processCommand "0"  ls (Position x y) = (Command, ls, (Position 1 y))
 processCommand "$"  ls (Position x y) = (Command, ls, newPos)
