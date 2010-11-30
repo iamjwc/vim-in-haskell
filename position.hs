@@ -13,3 +13,9 @@ move (Position x y) Down  = (Position x (y+1))
 setX :: Position -> Int -> Position
 setX (Position _ y) x  = (Position x y)
 
+getX :: Position -> Int
+getX (Position x _) = x
+
+getY :: Position -> Int
+getY (Position _ y) = y
+

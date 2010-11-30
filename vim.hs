@@ -1,3 +1,5 @@
+
+-- Position includes its own Left and Right
 import Prelude hiding (Left, Right)
 
 import System.Environment
@@ -7,41 +9,16 @@ import Char
 
 
 import Position
+import IOUtil
+import Util
+import Document
 
 data Mode      = Insert | Command
 
-type Line     = String
-type Lines    = [Line]
-type Command  = String
 
 
 
 
-
-runCommand :: String -> IO ()
-runCommand = putStr
-
-clearScreen :: String
-clearScreen = escapeCode "[2J"
-
-cursorToHome :: String
-cursorToHome = cursorToPos (Position 1 1)
-
-cursorToPos :: Position -> String
-cursorToPos (Position x y) = escapeCode "[" ++ (show y) ++ ";" ++ (show x) ++ "f"
-
-scroll :: Direction -> Int -> IO()
-scroll _ 0       = return ()
-scroll dir (n+1) = do runCommand (scrollCode dir)
-                      scroll dir n
-
-escapeCode :: String -> String
-escapeCode = ("\ESC" ++)
-
-scrollCode :: Direction -> String
-scrollCode Up   = escapeCode "M"
-scrollCode Down = escapeCode "D"
-scrollCode _    = "\BEL"
 
 beforeAndAfter :: [a] -> Int -> ([a], a, [a])
 beforeAndAfter items n
@@ -52,46 +29,37 @@ splitBefore :: Int -> [a] -> ([a],[a])
 splitBefore 0 arr = ([],arr)
 splitBefore n arr = splitAt n arr
 
+
 insertCharacterInLine :: Line -> Position -> Char -> (Lines, Position)
-insertCharacterInLine l (Position x y) '\n' = ([start, end], (Position 1 (y+1)))
-                                              where start = fst splitLine
-                                                    end   = snd splitLine
-                                                    splitLine = splitAt x l
-insertCharacterInLine l (Position x y) c    = ([start ++ [c] ++ end], (Position (x+1) y))
-                                              where start = fst splitLine
-                                                    end   = snd splitLine
-                                                    splitLine = splitBefore x l
+insertCharacterInLine line pos '\n' = ([start, end], newPos)
+                                      where (start, end) = splitAt (getX pos) line
+                                            newPos       = (move (setX pos 1) Down)
+insertCharacterInLine line pos char = ([insertAt char insertX line], move pos Right)
+                                      where insertX = (getX pos)-1 -- insert before the cursor
 
 
 insertCharacterInDocument :: Lines -> Position -> Char -> (Lines, Position)
 insertCharacterInDocument [] pos char = insertCharacterInDocument [""] pos char
-insertCharacterInDocument lines (Position x y) char
-  | (isControl char) && (char /= '\n') = (lines, (Position x y))
-  | otherwise             = (bef ++ insertCharacterInDocument ++ aft, pos)
-                            where (bef, cur, aft) = beforeAndAfter lines y
-                                  modify      = insertCharacterInLine cur (Position x y) char
-                                  insertCharacterInDocument = fst modify
-                                  pos         = snd modify
+insertCharacterInDocument lines pos char
+  | (isControl char) && (char /= '\n') = (lines, newPos)
+  | otherwise                          = (bef ++ newLine ++ aft, newPos)
+                                         where (bef, cur, aft)   = beforeAndAfter lines (getY pos)
+                                               (newLine, newPos) = insertCharacterInLine cur pos char
 
-getCh :: IO Char
-getCh  = do hSetEcho stdin False
-            c <- getChar
-            hSetEcho stdin True
-            return c
                                   
 updateScreen :: Lines -> Position -> IO ()
-updateScreen ls (Position x y) = do runCommand clearScreen 
-                                    runCommand cursorToHome
-                                    putStr $ unlines ls
-                                    runCommand $ cursorToPos (Position x y)
+updateScreen ls pos = do runCommand clearScreen 
+                         runCommand cursorToHome
+                         putStr $ unlines ls
+                         runCommand $ cursorToPos pos
 
 insertMode :: Lines -> Position -> IO ()
 insertMode ls cursorPos = do updateScreen ls cursorPos
                              input <- getCh
                              case input of
-                               '\ESC'    -> commandMode ls cursorPos
-                               otherwise -> do let (newLines, (Position newX newY)) = insertCharacterInDocument ls cursorPos input
-                                               insertMode newLines (Position newX newY)
+                               '\ESC'    -> commandMode ls (move cursorPos Left)
+                               otherwise -> do let (newLines, newPos) = insertCharacterInDocument ls cursorPos input
+                                               insertMode newLines newPos
 
 isCommandFinished :: String -> Bool
 isCommandFinished ""   = False
@@ -135,11 +103,13 @@ processCommand "$"  ls (Position x y) = (Command, ls, newPos)
                                      newPos      = (Position (length currentLine) y)
 
 processCommand "i"  ls pos = (Insert, ls, pos)
-processCommand "o"  ls pos = (Insert, ls, setX (move pos Down) 1)
 processCommand "a"  ls pos = (Insert, ls, move pos Right)
 processCommand "A"  ls (Position x y) = (Insert, ls, newPos)
                                         where currentLine = ls !! (y-1)
                                               newPos      = (Position ((length currentLine)+1)  y)
+processCommand "o"  ls (Position _ y) = (Insert, newLs, newPos)
+                                        where currentLine     = ls !! (y-1)
+                                              (newLs, newPos) = insertCharacterInDocument ls (Position (length currentLine) y) '\n'
 
 processCommand o    ls pos   = (Command, ls, pos)
 
