@@ -95,7 +95,7 @@ processCommand "x"  ls pos = (Command, (startLs ++ [startL ++ endL] ++ endLs), n
 processCommand "D"  ls pos = (Command, (startLs ++ [startL] ++ endLs), newPos)
                              where (Position x y) = pos
                                    (startLs, currentL, endLs) = beforeAndAfter ls y
-                                   (startL, _, endL) = beforeAndAfter currentL x
+                                   (startL, _, _) = beforeAndAfter currentL x
                                    newPos = setX pos (length startL)
 
 processCommand "0"  ls (Position x y) = (Command, ls, (Position 1 y))
