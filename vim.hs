@@ -15,6 +15,9 @@ import Document
 
 data Mode      = Insert | Command
 
+type History = [(Lines, Position)]
+data HistoryAction = Do | Undo | Ignore
+
 
 
 
@@ -40,20 +43,20 @@ updateScreen ls pos = do runCommand clearScreen
                          putStr $ unlines ls
                          runCommand $ cursorToPos pos
 
-insertMode :: Lines -> Position -> IO ()
-insertMode ls cursorPos = do updateScreen ls cursorPos
-                             input <- getCh
-                             case input of
-                               '\ESC'    -> commandMode ls (move cursorPos Left)
-                               '\b'      -> do let (newLines, newPos) = deleteCharacter ls (move cursorPos Left)
-                                               insertMode [""] newPos
-                               otherwise -> do let (newLines, newPos) = insertCharacterInDocument ls cursorPos input
-                                               insertMode newLines newPos
+insertMode :: Lines -> Position -> History -> IO ()
+insertMode ls cursorPos history = do updateScreen ls cursorPos
+                                     input <- getCh
+                                     case input of
+                                       '\ESC'    -> commandMode ls (move cursorPos Left) history
+                                       '\b'      -> do let (newLines, newPos) = deleteCharacter ls (move cursorPos Left)
+                                                       insertMode [""] newPos history
+                                       otherwise -> do let (newLines, newPos) = insertCharacterInDocument ls cursorPos input
+                                                       insertMode newLines newPos history
 
 isCommandFinished :: String -> Bool
 isCommandFinished ""   = False
 isCommandFinished "dd" = True
-isCommandFinished cmd  = elem (head cmd) "hjklioaA0$xD"
+isCommandFinished cmd  = elem (head cmd) "uhjklioaA0$xD"
 
 
 getCommand :: String -> IO String
@@ -91,41 +94,59 @@ deleteCharacter ls (Position x y) = ((startLs ++ [startL ++ endL] ++ endLs), new
                                      _  -> Position x y
 
 
-processCommand :: String -> Lines -> Position -> (Mode, (Lines, Position))
-processCommand "h"  ls pos = (Command, (ls, move pos Left))
-processCommand "k"  ls pos = (Command, (ls, move pos Up))
-processCommand "l"  ls pos = (Command, (ls, move pos Right))
-processCommand "j"  ls pos = (Command, (ls, move pos Down))
+processCommand :: String -> Lines -> Position -> (Mode, HistoryAction, (Lines, Position))
+processCommand "u"  ls pos = (Command, Undo, (ls, pos))
 
-processCommand "dd" ls pos = (Command, deleteLine ls pos)
-processCommand "x"  ls pos = (Command, deleteCharacter ls pos)
-processCommand "D"  ls pos = (Command, deleteToEndOfLine ls pos)
+processCommand "h"  ls pos = (Command, Ignore, (ls, move pos Left))
+processCommand "k"  ls pos = (Command, Ignore, (ls, move pos Up))
+processCommand "l"  ls pos = (Command, Ignore, (ls, move pos Right))
+processCommand "j"  ls pos = (Command, Ignore, (ls, move pos Down))
 
-processCommand "0"  ls (Position x y) = (Command, (ls, (Position 1 y)))
-processCommand "$"  ls (Position x y) = (Command, (ls, newPos))
+processCommand "dd" ls pos = (Command, Do, deleteLine ls pos)
+processCommand "x"  ls pos = (Command, Do, deleteCharacter ls pos)
+processCommand "D"  ls pos = (Command, Do, deleteToEndOfLine ls pos)
+
+processCommand "0"  ls (Position x y) = (Command, Ignore, (ls, (Position 1 y)))
+processCommand "$"  ls (Position x y) = (Command, Ignore, (ls, newPos))
                                where currentLine = ls !! (y-1)
                                      newPos      = (Position (length currentLine) y)
 
-processCommand "i"  ls pos = (Insert, (ls, pos))
-processCommand "a"  ls pos = (Insert, (ls, move pos Right))
-processCommand "A"  ls (Position x y) = (Insert, (ls, newPos))
+processCommand "i"  ls pos = (Insert, Do, (ls, pos))
+processCommand "a"  ls pos = (Insert, Do, (ls, move pos Right))
+processCommand "A"  ls (Position x y) = (Insert, Do, (ls, newPos))
                                         where currentLine = ls !! (y-1)
                                               newPos      = (Position ((length currentLine)+1)  y)
-processCommand "o"  ls (Position _ y) = (Insert, (newLs, newPos))
+processCommand "o"  ls (Position _ y) = (Insert, Do, (newLs, newPos))
                                         where currentLine     = ls !! (y-1)
                                               (newLs, newPos) = insertCharacterInDocument ls (Position (length currentLine) y) '\n'
 
-processCommand o    ls pos   = (Command, (ls, pos))
+processCommand o    ls pos   = (Command, Do, (ls, pos))
 
 -- lineAtCurrentPos :: Lines -> Position -> Line
 -- lineAtCurrentPos
 
-commandMode :: Lines -> Position -> IO ()
-commandMode ls pos = do updateScreen ls pos
-                        cmd <- getCommand ""
-                        case processCommand cmd ls pos of
-                          (Insert, (newLs, newPos))  -> insertMode newLs newPos
-                          (Command, (newLs, newPos)) -> commandMode newLs newPos
+commandMode :: Lines -> Position -> History -> IO ()
+commandMode ls pos history = do updateScreen ls pos
+                                cmd <- getCommand ""
+                                case processCommand cmd ls pos of
+                                  -- Append new additions to history
+                                  (Insert,  _,  (newLs, newPos))     -> insertMode  newLs newPos ((newLs,newPos):history)
+
+                                  -- If it is an Ignore action, do not modify the history
+                                  (Command, Ignore, (newLs, newPos)) -> commandMode newLs newPos history
+                                  
+                                  -- If it is a Do action, just add the new document and position
+                                  -- to the history
+                                  (Command, Do, (newLs, newPos))     -> commandMode newLs newPos ((newLs,newPos):history)
+
+                                  (Command, Undo, (_, _)) -> case history of 
+                                    -- If history is empty, just call command mode again with the same
+                                    -- arguments
+                                    []                         -> commandMode ls pos history
+
+                                    -- If there is something in the history, use that document and position
+                                    -- and remove it from the history
+                                    (newLs, newPos):newHistory -> commandMode newLs newPos newHistory
 
 
 -- | 'main' runs the main program
@@ -134,5 +155,5 @@ main = do runCommand clearScreen
           runCommand cursorToHome
           hSetBuffering stdin NoBuffering
           hSetBuffering stdout NoBuffering
-          commandMode [""] (Position 1 1)
+          commandMode [""] (Position 1 1) []
 
