@@ -125,28 +125,28 @@ processCommand o    ls pos   = (Command, Do, (ls, pos))
 -- lineAtCurrentPos :: Lines -> Position -> Line
 -- lineAtCurrentPos
 
+determineNewPath :: String -> Lines -> Position -> History -> (Mode, Lines, Position, History)
+determineNewPath cmd ls pos history = (mode, newLs, newPos, newHistory)
+                                      where (mode, historyAction, (returnedLs, returnedPos)) = processCommand cmd ls pos
+                                            -- Determine the new lines and position
+                                            (newLs, newPos) = case (historyAction, history) of
+                                              (Undo, []) -> (ls, pos)
+                                              (Undo, _)  -> head history
+                                              _          -> (returnedLs, returnedPos)
+
+                                            -- Determine the new history
+                                            newHistory = case (historyAction, history) of
+                                              (Undo, [])  -> []
+                                              (Undo, _)   -> tail history
+                                              (Do, _)     -> (returnedLs, returnedPos):history
+                                              (Ignore, _) -> history
+
 commandMode :: Lines -> Position -> History -> IO ()
 commandMode ls pos history = do updateScreen ls pos
                                 cmd <- getCommand ""
-                                case processCommand cmd ls pos of
-                                  -- Append new additions to history
-                                  (Insert,  _,  (newLs, newPos))     -> insertMode  newLs newPos ((newLs,newPos):history)
-
-                                  -- If it is an Ignore action, do not modify the history
-                                  (Command, Ignore, (newLs, newPos)) -> commandMode newLs newPos history
-                                  
-                                  -- If it is a Do action, just add the new document and position
-                                  -- to the history
-                                  (Command, Do, (newLs, newPos))     -> commandMode newLs newPos ((newLs,newPos):history)
-
-                                  (Command, Undo, (_, _)) -> case history of 
-                                    -- If history is empty, just call command mode again with the same
-                                    -- arguments
-                                    []                         -> commandMode ls pos history
-
-                                    -- If there is something in the history, use that document and position
-                                    -- and remove it from the history
-                                    (newLs, newPos):newHistory -> commandMode newLs newPos newHistory
+                                case determineNewPath cmd ls pos history of
+                                  (Insert,  newLs, newPos, newHistory) -> insertMode newLs newPos newHistory
+                                  (Command, newLs, newPos, newHistory) -> commandMode newLs newPos newHistory
 
 
 -- | 'main' runs the main program
