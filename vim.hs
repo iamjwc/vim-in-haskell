@@ -45,6 +45,8 @@ insertMode ls cursorPos = do updateScreen ls cursorPos
                              input <- getCh
                              case input of
                                '\ESC'    -> commandMode ls (move cursorPos Left)
+                               '\b'      -> do let (newLines, newPos) = deleteCharacter ls (move cursorPos Left)
+                                               insertMode [""] newPos
                                otherwise -> do let (newLines, newPos) = insertCharacterInDocument ls cursorPos input
                                                insertMode newLines newPos
 
@@ -89,35 +91,31 @@ deleteCharacter ls (Position x y) = ((startLs ++ [startL ++ endL] ++ endLs), new
                                      _  -> Position x y
 
 
-processCommand :: String -> Lines -> Position -> (Mode, Lines, Position)
-processCommand "dd" ls pos   = (Command, newLs, newPos)
-                               where (newLs, newPos) = deleteLine ls pos
-processCommand "h"  ls pos = (Command, ls, move pos Left)
-processCommand "k"  ls pos = (Command, ls, move pos Up)
-processCommand "l"  ls pos = (Command, ls, move pos Right)
-processCommand "j"  ls pos = (Command, ls, move pos Down)
+processCommand :: String -> Lines -> Position -> (Mode, (Lines, Position))
+processCommand "h"  ls pos = (Command, (ls, move pos Left))
+processCommand "k"  ls pos = (Command, (ls, move pos Up))
+processCommand "l"  ls pos = (Command, (ls, move pos Right))
+processCommand "j"  ls pos = (Command, (ls, move pos Down))
 
-processCommand "x"  ls pos = (Command, newLs, newPos)
-                             where (newLs, newPos) = deleteCharacter ls pos
+processCommand "dd" ls pos = (Command, deleteLine ls pos)
+processCommand "x"  ls pos = (Command, deleteCharacter ls pos)
+processCommand "D"  ls pos = (Command, deleteToEndOfLine ls pos)
 
-processCommand "D"  ls pos = (Command, newLs, newPos)
-                             where (newLs, newPos) = deleteToEndOfLine ls pos
-
-processCommand "0"  ls (Position x y) = (Command, ls, (Position 1 y))
-processCommand "$"  ls (Position x y) = (Command, ls, newPos)
+processCommand "0"  ls (Position x y) = (Command, (ls, (Position 1 y)))
+processCommand "$"  ls (Position x y) = (Command, (ls, newPos))
                                where currentLine = ls !! (y-1)
                                      newPos      = (Position (length currentLine) y)
 
-processCommand "i"  ls pos = (Insert, ls, pos)
-processCommand "a"  ls pos = (Insert, ls, move pos Right)
-processCommand "A"  ls (Position x y) = (Insert, ls, newPos)
+processCommand "i"  ls pos = (Insert, (ls, pos))
+processCommand "a"  ls pos = (Insert, (ls, move pos Right))
+processCommand "A"  ls (Position x y) = (Insert, (ls, newPos))
                                         where currentLine = ls !! (y-1)
                                               newPos      = (Position ((length currentLine)+1)  y)
-processCommand "o"  ls (Position _ y) = (Insert, newLs, newPos)
+processCommand "o"  ls (Position _ y) = (Insert, (newLs, newPos))
                                         where currentLine     = ls !! (y-1)
                                               (newLs, newPos) = insertCharacterInDocument ls (Position (length currentLine) y) '\n'
 
-processCommand o    ls pos   = (Command, ls, pos)
+processCommand o    ls pos   = (Command, (ls, pos))
 
 -- lineAtCurrentPos :: Lines -> Position -> Line
 -- lineAtCurrentPos
@@ -126,8 +124,8 @@ commandMode :: Lines -> Position -> IO ()
 commandMode ls pos = do updateScreen ls pos
                         cmd <- getCommand ""
                         case processCommand cmd ls pos of
-                          (Insert, newLs, newPos)  -> insertMode newLs newPos
-                          (Command, newLs, newPos) -> commandMode newLs newPos
+                          (Insert, (newLs, newPos))  -> insertMode newLs newPos
+                          (Command, (newLs, newPos)) -> commandMode newLs newPos
 
 
 -- | 'main' runs the main program
