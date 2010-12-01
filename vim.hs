@@ -54,9 +54,10 @@ insertMode ls cursorPos history = do updateScreen ls cursorPos
                                                        insertMode newLines newPos history
 
 isCommandFinished :: String -> Bool
-isCommandFinished ""   = False
-isCommandFinished "dd" = True
-isCommandFinished cmd  = elem (head cmd) "uhjklioaA0$xD"
+isCommandFinished ""       = False
+isCommandFinished "dd"     = True
+isCommandFinished ('r':c:[]) = True
+isCommandFinished cmd      = elem (head cmd) "uhjklioaA0$xD"
 
 
 getCommand :: String -> IO String
@@ -93,6 +94,11 @@ deleteCharacter ls (Position x y) = ((startLs ++ [startL ++ endL] ++ endLs), new
                                      [] -> Position (length startL) y
                                      _  -> Position x y
 
+replaceCharacter :: Lines -> Position -> Char -> (Lines, Position)
+replaceCharacter ls (Position x y) c = ((startLs ++ [startL ++ [c] ++ endL] ++ endLs), (Position x y))
+                                       where (startLs, currentL, endLs) = beforeAndAfter ls y
+                                             (startL, _, endL) = beforeAndAfter currentL x
+
 
 processCommand :: String -> Lines -> Position -> (Mode, HistoryAction, (Lines, Position))
 processCommand "u"  ls pos = (Command, Undo, (ls, pos))
@@ -110,6 +116,8 @@ processCommand "0"  ls (Position x y) = (Command, Ignore, (ls, (Position 1 y)))
 processCommand "$"  ls (Position x y) = (Command, Ignore, (ls, newPos))
                                where currentLine = ls !! (y-1)
                                      newPos      = (Position (length currentLine) y)
+
+processCommand ('r':c:[]) ls pos = (Command, Do, replaceCharacter ls pos c)
 
 processCommand "i"  ls pos = (Insert, Do, (ls, pos))
 processCommand "a"  ls pos = (Insert, Do, (ls, move pos Right))
