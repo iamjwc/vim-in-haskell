@@ -1,10 +1,11 @@
 
 -- Position includes its own Left and Right
-import Prelude hiding (Left, Right)
+import Prelude hiding (Left, Right, log)
 
 import System.Environment
 import System.IO
 import Char
+import Debug.Trace
 --(isAlphaNum)
 
 
@@ -42,16 +43,6 @@ updateScreen ls pos = do runCommand clearScreen
                          runCommand cursorToHome
                          putStr $ unlines ls
                          runCommand $ cursorToPos pos
-
-insertMode :: Lines -> Position -> History -> IO ()
-insertMode ls cursorPos history = do updateScreen ls cursorPos
-                                     input <- getCh
-                                     case input of
-                                       '\ESC'    -> commandMode ls (move cursorPos Left) history
-                                       '\b'      -> do let (newLines, newPos) = deleteCharacter ls (move cursorPos Left)
-                                                       insertMode [""] newPos history
-                                       otherwise -> do let (newLines, newPos) = insertCharacterInDocument ls cursorPos input
-                                                       insertMode newLines newPos history
 
 isCommandFinished :: String -> Bool
 isCommandFinished ""       = False
@@ -139,29 +130,45 @@ determineNewPath cmd ls pos history = (mode, newLs, newPos, newHistory)
                                             -- Determine the new lines and position
                                             (newLs, newPos) = case (historyAction, history) of
                                               (Undo, []) -> (ls, pos)
-                                              (Undo, _)  -> head history
+                                              (Undo, _)  -> head $ tail history
                                               _          -> (returnedLs, returnedPos)
 
                                             -- Determine the new history
                                             newHistory = case (historyAction, history) of
                                               (Undo, [])  -> []
-                                              (Undo, _)   -> tail history
+                                              (Undo, _)   -> (newLs, newPos) : (tail $ tail history)
                                               (Do, _)     -> (returnedLs, returnedPos):history
                                               (Ignore, _) -> history
 
+log :: String -> IO ()
+log s = do f <- openFile "debug.log" AppendMode
+           hPutStrLn f s
+           hClose f
+
 commandMode :: Lines -> Position -> History -> IO ()
+commandMode ls pos []      = commandMode ls pos [(ls,pos)]
 commandMode ls pos history = do updateScreen ls pos
+                                log $ show $ map (fst) history
                                 cmd <- getCommand ""
                                 case determineNewPath cmd ls pos history of
                                   (Insert,  newLs, newPos, newHistory) -> insertMode newLs newPos newHistory
                                   (Command, newLs, newPos, newHistory) -> commandMode newLs newPos newHistory
 
+insertMode :: Lines -> Position -> History -> IO ()
+insertMode ls cursorPos history = do updateScreen ls cursorPos
+                                     log $ show $ map (fst) history
+                                     input <- getCh
+                                     case input of
+                                       '\ESC'    -> commandMode ls (move cursorPos Left) ((ls,cursorPos):history)
+                                       '\b'      -> do let (newLines, newPos) = deleteCharacter ls (move cursorPos Left)
+                                                       insertMode [""] newPos history
+                                       otherwise -> do let (newLines, newPos) = insertCharacterInDocument ls cursorPos input
+                                                       insertMode newLines newPos history
+
 
 -- | 'main' runs the main program
 main :: IO ()
-main = do runCommand clearScreen 
-          runCommand cursorToHome
-          hSetBuffering stdin NoBuffering
+main = do hSetBuffering stdin NoBuffering
           hSetBuffering stdout NoBuffering
           commandMode [""] (Position 1 1) []
 
