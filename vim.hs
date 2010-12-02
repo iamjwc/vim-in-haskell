@@ -93,6 +93,7 @@ replaceCharacter ls (Position x y) c = ((startLs ++ [startL ++ [c] ++ endL] ++ e
 
 processCommand :: String -> Lines -> Position -> (Mode, HistoryAction, (Lines, Position))
 processCommand "u"  ls pos = (Command, Undo, (ls, pos))
+-- Redo character = '\DC2'
 
 processCommand "h"  ls pos = (Command, Ignore, (ls, move pos Left))
 processCommand "k"  ls pos = (Command, Ignore, (ls, move pos Up))
@@ -109,6 +110,7 @@ processCommand "$"  ls (Position x y) = (Command, Ignore, (ls, newPos))
                                      newPos      = (Position (length currentLine) y)
 
 processCommand ('r':c:[]) ls pos = (Command, Do, replaceCharacter ls pos c)
+
 
 processCommand "i"  ls pos = (Insert, Do, (ls, pos))
 processCommand "a"  ls pos = (Insert, Do, (ls, move pos Right))
@@ -154,14 +156,21 @@ commandMode ls pos history = do updateScreen ls pos
                                   (Insert,  newLs, newPos, newHistory) -> insertMode newLs newPos newHistory
                                   (Command, newLs, newPos, newHistory) -> commandMode newLs newPos newHistory
 
+backspace :: Lines -> Position -> (Lines, Position)
+backspace ls (Position 1 y) = (ls, Position 1 y)
+backspace ls pos            = (newLs, newPos)
+                              where (newLs, _) = deleteCharacter ls (move pos Left) -- Deletes the character to the left of the position
+                                    newPos     = (move pos Left)
+
 insertMode :: Lines -> Position -> History -> IO ()
 insertMode ls cursorPos history = do updateScreen ls cursorPos
                                      log $ show $ map (fst) history
                                      input <- getCh
+                                     log $ show (fromEnum input, input)
                                      case input of
                                        '\ESC'    -> commandMode ls (move cursorPos Left) ((ls,cursorPos):history)
-                                       '\b'      -> do let (newLines, newPos) = deleteCharacter ls (move cursorPos Left)
-                                                       insertMode [""] newPos history
+                                       '\DEL'    -> do let (newLines, newPos) = backspace ls cursorPos
+                                                       insertMode newLines newPos history
                                        otherwise -> do let (newLines, newPos) = insertCharacterInDocument ls cursorPos input
                                                        insertMode newLines newPos history
 
