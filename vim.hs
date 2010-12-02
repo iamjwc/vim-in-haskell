@@ -47,8 +47,9 @@ updateScreen ls pos = do runCommand clearScreen
 isCommandFinished :: String -> Bool
 isCommandFinished ""       = False
 isCommandFinished "dd"     = True
+isCommandFinished "gg"     = True
 isCommandFinished ('r':c:[]) = True
-isCommandFinished cmd      = elem (head cmd) "uhjklioaA0$xD"
+isCommandFinished cmd      = elem (head cmd) "uhjklioaA0$xDG"
 
 
 getCommand :: String -> IO String
@@ -95,6 +96,8 @@ processCommand :: String -> Lines -> Position -> (Mode, HistoryAction, (Lines, P
 processCommand "u"  ls pos = (Command, Undo, (ls, pos))
 -- Redo character = '\DC2'
 
+processCommand "gg" ls pos = (Command, Ignore, (ls, setY pos 1))
+processCommand "G"  ls pos = (Command, Ignore, (ls, setY pos (length ls)))
 processCommand "h"  ls pos = (Command, Ignore, (ls, move pos Left))
 processCommand "k"  ls pos = (Command, Ignore, (ls, move pos Up))
 processCommand "l"  ls pos = (Command, Ignore, (ls, move pos Right))
