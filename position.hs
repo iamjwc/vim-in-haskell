@@ -1,12 +1,15 @@
 
 module Position where
 
+type Line     = String
+type Lines    = [Line]
+
 data Position  = Position Int Int
 data Direction = Up | Down | Left | Right
 
 move :: Position -> Direction -> Position
-move (Position x y) Position.Left  = (Position (max (x-1) 1)  y)
-move (Position x y) Up    = (Position x (max (y-1) 1))
+move (Position x y) Position.Left  = (Position (max (x-1) 0)  y)
+move (Position x y) Up    = (Position x (max (y-1) 0))
 move (Position x y) Position.Right = (Position (x+1) y)
 move (Position x y) Down  = (Position x (y+1))
 

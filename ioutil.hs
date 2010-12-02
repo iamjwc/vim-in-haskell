@@ -2,20 +2,20 @@
 module IOUtil where
 
 import System.IO
+import UI.HSCurses.Curses as Curses
 
 import Position
 
+updateScreen :: Lines -> Position -> IO ()
+updateScreen ls (Position x y) = do Curses.wclear Curses.stdScr
+                                    Curses.mvWAddStr Curses.stdScr 0 0 $ unlines ls
+                                    Curses.move y x
+                                    Curses.refresh
+                           
+
+
 runCommand :: String -> IO ()
 runCommand = putStr
-
-clearScreen :: String
-clearScreen = escapeCode "[2J"
-
-cursorToHome :: String
-cursorToHome = cursorToPos (Position 1 1)
-
-cursorToPos :: Position -> String
-cursorToPos (Position x y) = escapeCode "[" ++ (show y) ++ ";" ++ (show x) ++ "f"
 
 scroll :: Direction -> Int -> IO()
 scroll _ 0       = return ()
