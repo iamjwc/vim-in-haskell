@@ -44,7 +44,7 @@ isCommandFinished ""       = False
 isCommandFinished "dd"     = True
 isCommandFinished "gg"     = True
 isCommandFinished ('r':c:[]) = True
-isCommandFinished cmd      = elem (head cmd) "uhjklioaA0$xDG"
+isCommandFinished cmd      = elem (head cmd) "uhjklioaA0$xDG:"
 
 
 getCommand :: String -> IO String
@@ -88,6 +88,8 @@ replaceCharacter ls (Position x y) c = ((startLs ++ [startL ++ [c] ++ endL] ++ e
 processCommand :: String -> Lines -> Position -> (Mode, HistoryAction, (Lines, Position))
 processCommand "u"  ls pos = (Command, Undo, (ls, pos))
 -- Redo character = '\DC2'
+
+processCommand ":"  ls pos = (ColonCommand ":", Ignore, (ls, pos))
 
 processCommand "gg" ls pos = (Command, Ignore, (ls, setY pos 0))
 processCommand "G"  ls pos = (Command, Ignore, (ls, setY pos (length ls)))
@@ -146,18 +148,27 @@ backspace ls pos            = (newLs, newPos)
                               where (newLs, _) = deleteCharacter ls (Position.move pos Left) -- Deletes the character to the left of the position
                                     newPos     = (Position.move pos Left)
 
+colonCommandMode :: String -> Lines -> Position -> History -> IO()
+colonCommandMode cmd ls pos history = do updateScreen (ColonCommand cmd) ls pos
+                                         input <- Curses.getCh
+                                         case input of
+                                           KeyChar '\ESC' -> commandMode ls pos history
+                                           KeyChar '\DEL' -> colonCommandMode (init cmd)   ls pos history
+                                           KeyChar c      -> colonCommandMode (cmd ++ [c]) ls pos history
+
 commandMode :: Lines -> Position -> History -> IO ()
 commandMode [] _   history = commandMode [""] (Position 0 0) history
 commandMode ls pos []      = commandMode ls pos [(ls,pos)]
-commandMode ls pos history = do updateScreen ls pos
+commandMode ls pos history = do updateScreen Command ls pos
                                 log $ show $ map (fst) history
                                 cmd <- getCommand ""
                                 case determineNewPath cmd ls pos history of
-                                  (Insert,  newLs, newPos, newHistory) -> insertMode newLs newPos newHistory
-                                  (Command, newLs, newPos, newHistory) -> commandMode newLs newPos newHistory
+                                  (Insert,           newLs, newPos, newHistory) -> insertMode newLs newPos newHistory
+                                  (Command,          newLs, newPos, newHistory) -> commandMode newLs newPos newHistory
+                                  (ColonCommand cmd, newLs, newPos, newHistory) -> colonCommandMode cmd newLs newPos newHistory
 
 insertMode :: Lines -> Position -> History -> IO ()
-insertMode ls cursorPos history = do updateScreen ls cursorPos
+insertMode ls cursorPos history = do updateScreen Insert ls cursorPos
                                      log $ show $ map (fst) history
                                      input <- Curses.getCh
                                      --log $ show (fromEnum input, input)

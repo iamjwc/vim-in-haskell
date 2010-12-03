@@ -39,9 +39,9 @@ moveToValidPosition :: Mode -> Lines -> Position -> Position
 -- can append to the end of a line
 moveToValidPosition Insert ls (Position x y) = moveToValidPosition Command newLs $ Position x y
                                                where newLs = map (++" ") ls
-moveToValidPosition Command ls (Position x y)
-  | y >= lenDoc  = moveToValidPosition Command ls $ Position x (lenDoc-1)
-  | x >= lenLine = moveToValidPosition Command ls $ Position (lenLine-1) y
+moveToValidPosition mode ls (Position x y)
+  | y >= lenDoc  = moveToValidPosition mode ls $ Position x (lenDoc-1)
+  | x >= lenLine = moveToValidPosition mode ls $ Position (lenLine-1) y
   | otherwise    = Position (max x 0) (max y 0)
                    where lenLine = length (ls !! y)
                          lenDoc  = length ls

@@ -5,33 +5,29 @@ import System.IO
 import UI.HSCurses.Curses as Curses
 
 import Position
+import VimMode
 
-updateScreen :: Lines -> Position -> IO ()
-updateScreen ls (Position x y) = do Curses.wclear Curses.stdScr
-                                    Curses.mvWAddStr Curses.stdScr 0 0 $ unlines ls
-                                    Curses.move y x
-                                    Curses.refresh
-                           
+updateScreen :: Mode -> Lines -> Position -> IO ()
+updateScreen mode ls (Position x y) = do Curses.wclear Curses.stdScr
+                                         Curses.mvWAddStr Curses.stdScr 0 0 (unlines ls)
+                                         statusBar mode (Position x y)
+                                         case mode of
+                                           ColonCommand _ -> return ()
+                                           _              -> Curses.move y x
+                                         Curses.refresh
 
+statusBar :: Mode -> Position -> IO ()
+statusBar Command (Position x y) = do (height,width) <- Curses.scrSize
+                                      Curses.mvWAddStr Curses.stdScr (height-2) 0 ("x: " ++ (show x) ++ ", y: " ++ (show y))
+                                      return ()
 
-runCommand :: String -> IO ()
-runCommand = putStr
+statusBar (ColonCommand cmd) (Position x y) = do (height,width) <- Curses.scrSize
+                                                 Curses.mvWAddStr Curses.stdScr (height-2) 0 ("x: " ++ (show x) ++ ", y: " ++ (show y))
+                                                 Curses.mvWAddStr Curses.stdScr (height-1) 0 cmd
+                                                 Curses.move (height-1) (length cmd)
+                                                 return ()
 
-scroll :: Direction -> Int -> IO()
-scroll _ 0       = return ()
-scroll dir (n+1) = do runCommand (scrollCode dir)
-                      scroll dir n
-
-escapeCode :: String -> String
-escapeCode = ("\ESC" ++)
-
-scrollCode :: Direction -> String
-scrollCode Up   = escapeCode "M"
-scrollCode Down = escapeCode "D"
-scrollCode _    = "\BEL"
-
-getCh :: IO Char
-getCh  = do hSetEcho stdin False
-            c <- getChar
-            hSetEcho stdin True
-            return c
+statusBar Insert  (Position x y) = do (height,width) <- Curses.scrSize
+                                      Curses.mvWAddStr Curses.stdScr (height-2) 0 ("x: " ++ (show x) ++ ", y: " ++ (show y))
+                                      Curses.mvWAddStr Curses.stdScr (height-1) 0 "-- INSERT --"
+                                      return ()
