@@ -148,21 +148,29 @@ backspace ls pos            = (newLs, newPos)
                               where (newLs, _) = deleteCharacter ls (Position.move pos Left) -- Deletes the character to the left of the position
                                     newPos     = (Position.move pos Left)
 
-saveFile :: String -> Lines -> IO ()
-saveFile name ls = writeFile name $ unlines ls
+saveFile :: String -> Lines -> IO (Lines)
+saveFile name ls = do writeFile name $ unlines ls
+                      return ls
 
-processColonCommand :: String -> Lines -> Position -> IO ()
+loadFile :: String -> IO (Lines)
+loadFile name = do s <- readFile name
+                   return $ lines s
+
+processColonCommand :: String -> Lines -> Position -> IO (Lines)
 processColonCommand (':':cmd) ls pos = processColonCommand cmd ls pos
 
 processColonCommand ('w':' ':name) ls pos = saveFile name ls
+processColonCommand ('e':' ':name) ls pos = loadFile name
 
 colonCommandMode :: String -> Lines -> Position -> History -> IO()
 colonCommandMode cmd ls pos history = do updateScreen (ColonCommand cmd) ls pos
                                          input <- Curses.getCh
                                          case input of
                                            KeyChar '\ESC' -> commandMode ls pos history
-                                           KeyChar '\n'   -> do processColonCommand cmd ls pos
-                                                                commandMode ls pos history
+                                           KeyChar '\n'   -> do newLs <- processColonCommand cmd ls pos
+                                                                case newLs of
+                                                                  ls    -> commandMode ls pos history
+                                                                  _     -> commandMode newLs (Position 0 0) []
                                            KeyChar '\DEL' -> colonCommandMode (init cmd)   ls pos history
                                            KeyChar c      -> colonCommandMode (cmd ++ [c]) ls pos history
 
