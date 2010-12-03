@@ -17,8 +17,7 @@ import Position
 
 import IOUtil
 import Util
-
-data Mode      = Insert | Command
+import VimMode
 
 type History = [(Lines, Position)]
 data HistoryAction = Do | Undo | Ignore
@@ -58,14 +57,12 @@ getCommand cmd
 
 deleteLine :: Lines -> Position -> (Lines, Position)
 deleteLine ls (Position x y)
-  -- If there are no lines
-  | (length ls) == 0 = (ls,(Position x y))
   -- If trying to delete the last line
-  | y == (length ls)  = (init ls, (Position x (y-1)))
+  | y == (length ls)-1 = (init ls, (Position x (y-1)))
   -- first line
-  | y == 0           = (tail ls, (Position x y))
-  | otherwise        = (init before ++ after, (Position x y))
-                       where (before,after) = splitBefore y ls
+  | y == 0             = (tail ls, (Position x y))
+  | otherwise          = (init before ++ after, (Position x y))
+                         where (before,after) = splitBefore (y+1) ls
 
 
 deleteToEndOfLine :: Lines -> Position -> (Lines, Position)
@@ -105,7 +102,7 @@ processCommand "D"  ls pos = (Command, Do, deleteToEndOfLine ls pos)
 
 processCommand "0"  ls (Position x y) = (Command, Ignore, (ls, (Position 0 y)))
 processCommand "$"  ls (Position x y) = (Command, Ignore, (ls, newPos))
-                               where currentLine = ls !! (y-1)
+                               where currentLine = ls !! y
                                      newPos      = (Position (length currentLine) y)
 
 processCommand ('r':c:[]) ls pos = (Command, Do, replaceCharacter ls pos c)
@@ -114,16 +111,13 @@ processCommand ('r':c:[]) ls pos = (Command, Do, replaceCharacter ls pos c)
 processCommand "i"  ls pos = (Insert, Do, (ls, pos))
 processCommand "a"  ls pos = (Insert, Do, (ls, Position.move pos Right))
 processCommand "A"  ls (Position x y) = (Insert, Do, (ls, newPos))
-                                        where currentLine = ls !! (y-1)
+                                        where currentLine = ls !! y
                                               newPos      = (Position ((length currentLine)+1)  y)
 processCommand "o"  ls (Position _ y) = (Insert, Do, (newLs, newPos))
-                                        where currentLine     = ls !! (y-1)
+                                        where currentLine     = ls !! y
                                               (newLs, newPos) = insertCharacterInDocument ls (Position (length currentLine) y) '\n'
 
 processCommand o    ls pos   = (Command, Do, (ls, pos))
-
--- lineAtCurrentPos :: Lines -> Position -> Line
--- lineAtCurrentPos
 
 determineNewPath :: String -> Lines -> Position -> History -> (Mode, Lines, Position, History)
 determineNewPath cmd ls pos history = (mode, newLs, newPos, newHistory)
@@ -132,7 +126,7 @@ determineNewPath cmd ls pos history = (mode, newLs, newPos, newHistory)
                                             (newLs, newPos) = case (historyAction, history) of
                                               (Undo, []) -> (ls, pos)
                                               (Undo, _)  -> head $ tail history
-                                              _          -> (returnedLs, returnedPos)
+                                              _          -> (returnedLs, moveToValidPosition mode returnedLs returnedPos)
 
                                             -- Determine the new history
                                             newHistory = case (historyAction, history) of
@@ -153,6 +147,7 @@ backspace ls pos            = (newLs, newPos)
                                     newPos     = (Position.move pos Left)
 
 commandMode :: Lines -> Position -> History -> IO ()
+commandMode [] _   history = commandMode [""] (Position 0 0) history
 commandMode ls pos []      = commandMode ls pos [(ls,pos)]
 commandMode ls pos history = do updateScreen ls pos
                                 log $ show $ map (fst) history
@@ -172,7 +167,7 @@ insertMode ls cursorPos history = do updateScreen ls cursorPos
                                                             insertMode newLines newPos history
                                        KeyChar c      -> do log [c]
                                                             log $ show ls
-                                                            log $ "Position x:" ++ (show (getX cursorPos)) ++ " y: " ++ (show (getX cursorPos))
+                                                            log $ "Position x:" ++ (show (getX cursorPos)) ++ " y: " ++ (show (getY cursorPos))
                                                             let (newLines, newPos) = insertCharacterInDocument ls cursorPos c
                                                             insertMode newLines newPos history
 
@@ -189,8 +184,15 @@ end :: IO ()
 end  = do Curses.endWin
           return ()
 
+-- main :: IO ()
+-- main  = do let line  = ""
+--            let lines = [line]
+--            let (newls:[],newp) = insertCharacterInDocument lines (Position 0 0) 'f'
+--            log newls
+--            return ()
+
 -- | 'main' runs the main program
 main :: IO ()
-main = bracket_ start end (commandMode [""] (Position 0 0) [])
+main = bracket_ start end (commandMode [] (Position 0 0) [])
 
 

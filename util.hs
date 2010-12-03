@@ -11,7 +11,7 @@ insertBefore x idx = insertAt x (idx-1)
 beforeAndAfter :: [a] -> Int -> ([a], a, [a])
 beforeAndAfter items n
   | length items >= n = (init start, last start, end)
-                        where (start, end) = splitBefore n items
+                        where (start, end) = splitAt (n+1) items
 
 splitBefore :: Int -> [a] -> ([a],[a])
 splitBefore 0 arr = ([],arr)
