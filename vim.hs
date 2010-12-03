@@ -148,11 +148,21 @@ backspace ls pos            = (newLs, newPos)
                               where (newLs, _) = deleteCharacter ls (Position.move pos Left) -- Deletes the character to the left of the position
                                     newPos     = (Position.move pos Left)
 
+saveFile :: String -> Lines -> IO ()
+saveFile name ls = writeFile name $ unlines ls
+
+processColonCommand :: String -> Lines -> Position -> IO ()
+processColonCommand (':':cmd) ls pos = processColonCommand cmd ls pos
+
+processColonCommand ('w':' ':name) ls pos = saveFile name ls
+
 colonCommandMode :: String -> Lines -> Position -> History -> IO()
 colonCommandMode cmd ls pos history = do updateScreen (ColonCommand cmd) ls pos
                                          input <- Curses.getCh
                                          case input of
                                            KeyChar '\ESC' -> commandMode ls pos history
+                                           KeyChar '\n'   -> do processColonCommand cmd ls pos
+                                                                commandMode ls pos history
                                            KeyChar '\DEL' -> colonCommandMode (init cmd)   ls pos history
                                            KeyChar c      -> colonCommandMode (cmd ++ [c]) ls pos history
 
@@ -171,12 +181,12 @@ insertMode :: Lines -> Position -> History -> IO ()
 insertMode ls cursorPos history = do updateScreen Insert ls cursorPos
                                      log $ show $ map (fst) history
                                      input <- Curses.getCh
-                                     --log $ show (fromEnum input, input)
                                      case input of
                                        KeyChar '\ESC' -> commandMode ls (Position.move cursorPos Left) ((ls,cursorPos):history)
                                        KeyChar '\DEL' -> do let (newLines, newPos) = backspace ls cursorPos
                                                             insertMode newLines newPos history
                                        KeyChar c      -> do log [c]
+                                                            log $ show (fromEnum c, c)
                                                             log $ show ls
                                                             log $ "Position x:" ++ (show (getX cursorPos)) ++ " y: " ++ (show (getY cursorPos))
                                                             let (newLines, newPos) = insertCharacterInDocument ls cursorPos c
