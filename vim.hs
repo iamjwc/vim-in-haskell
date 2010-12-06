@@ -19,6 +19,8 @@ import IOUtil
 import Util
 import VimMode
 
+data ColonCommandResponse = Quit | KeepGoing
+
 type History = [(Lines, Position)]
 data HistoryAction = Do | Undo | Ignore
 
@@ -156,21 +158,26 @@ loadFile :: String -> IO (Lines)
 loadFile name = do s <- readFile name
                    return $ lines s
 
-processColonCommand :: String -> Lines -> Position -> IO (Lines)
+processColonCommand :: String -> Lines -> Position -> IO (ColonCommandResponse, Lines)
 processColonCommand (':':cmd) ls pos = processColonCommand cmd ls pos
 
-processColonCommand ('w':' ':name) ls pos = saveFile name ls
-processColonCommand ('e':' ':name) ls pos = loadFile name
+processColonCommand ('w':' ':name) ls pos = do newLs <- saveFile name ls
+                                               return (KeepGoing, newLs)
+processColonCommand ('e':' ':name) ls pos = do newLs <- loadFile name
+                                               return (KeepGoing, newLs)
+processColonCommand "q"            ls pos = return (Quit, [])
 
-colonCommandMode :: String -> Lines -> Position -> History -> IO()
+colonCommandMode :: String -> Lines -> Position -> History -> IO ()
 colonCommandMode cmd ls pos history = do updateScreen (ColonCommand cmd) ls pos
                                          input <- Curses.getCh
                                          case input of
                                            KeyChar '\ESC' -> commandMode ls pos history
-                                           KeyChar '\n'   -> do newLs <- processColonCommand cmd ls pos
-                                                                case newLs of
-                                                                  ls    -> commandMode ls pos history
-                                                                  _     -> commandMode newLs (Position 0 0) []
+                                           KeyChar '\n'   -> do (resp, newLs) <- processColonCommand cmd ls pos
+                                                                case resp of
+                                                                  Quit -> return ()
+                                                                  _    -> if ls == newLs
+                                                                            then commandMode ls pos history
+                                                                            else commandMode newLs (Position 0 0) []
                                            KeyChar '\DEL' -> colonCommandMode (init cmd)   ls pos history
                                            KeyChar c      -> colonCommandMode (cmd ++ [c]) ls pos history
 
