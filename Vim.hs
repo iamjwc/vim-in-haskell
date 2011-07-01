@@ -12,12 +12,10 @@ import Debug.Trace
 
 import UI.HSCurses.Curses as Curses
 
-
-import Position
-
-import IOUtil
-import Util
-import VimMode
+import Vim.Position as Position
+import Vim.IOUtil
+import Vim.Util
+import Vim.Mode
 
 data ColonCommandResponse = Quit | KeepGoing
 

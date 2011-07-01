@@ -1,8 +1,8 @@
 
-module Position where
+module Vim.Position where
 
 import Prelude hiding (Left, Right, log)
-import VimMode
+import Vim.Mode
 
 type Line     = String
 type Lines    = [Line]
