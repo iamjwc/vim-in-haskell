@@ -1,5 +1,5 @@
 
-module Util where
+module Vim.Util where
 
 insertAt :: a -> Int -> [a] -> [a]
 insertAt x idx xs = start ++ [x] ++ end

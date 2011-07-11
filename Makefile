@@ -1,5 +1,7 @@
-vim.out : vim.hs
-	ghc vimmode.hs position.hs ioutil.hs util.hs vim.hs -package hscurses -o vim
+.PHONY: vim clean
+
+vim:
+	ghc -Wall -outputdir rubbish --make Vim.hs -o vim
 
 clean:
-	rm -f vim.out *.hi *.o debug.log
+	rm -rf vim ./rubbish debug.log

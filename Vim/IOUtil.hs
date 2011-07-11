@@ -1,11 +1,11 @@
 
-module IOUtil where
+module Vim.IOUtil where
 
 import System.IO
 import UI.HSCurses.Curses as Curses
 
-import Position
-import VimMode
+import Vim.Position
+import Vim.Mode
 
 updateScreen :: Mode -> Lines -> Position -> IO ()
 updateScreen mode ls (Position x y) = do Curses.wclear Curses.stdScr

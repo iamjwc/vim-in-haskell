@@ -12,14 +12,12 @@ import Debug.Trace
 
 import UI.HSCurses.Curses as Curses
 
+import Vim.Position as Position
+import Vim.IOUtil
+import Vim.Util
+import Vim.Mode
 
-import Position
-
-import IOUtil
-import Util
-import VimMode
-
-data ColonCommandResponse = Quit | KeepGoing
+data ColonCommandResponse = Quit | DoNothing | Message String
 
 type History = [(Lines, Position)]
 data HistoryAction = Do | Undo | Ignore
@@ -162,10 +160,11 @@ processColonCommand :: String -> Lines -> Position -> IO (ColonCommandResponse, 
 processColonCommand (':':cmd) ls pos = processColonCommand cmd ls pos
 
 processColonCommand ('w':' ':name) ls pos = do newLs <- saveFile name ls
-                                               return (KeepGoing, newLs)
+                                               return (DoNothing, newLs)
 processColonCommand ('e':' ':name) ls pos = do newLs <- loadFile name
-                                               return (KeepGoing, newLs)
+                                               return (DoNothing, newLs)
 processColonCommand "q"            ls pos = return (Quit, [])
+processColonCommand _              ls pos = return (Message "??!?!", [])
 
 colonCommandMode :: String -> Lines -> Position -> History -> IO ()
 colonCommandMode cmd ls pos history = do updateScreen (ColonCommand cmd) ls pos
