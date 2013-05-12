@@ -6,11 +6,11 @@ import Control.Exception (bracket_)
 
 import System.Environment
 import System.IO
-import Char
+import Data.Char
 import Debug.Trace
 --(isAlphaNum)
 
-import UI.HSCurses.Curses as Curses
+import UI.HSCurses.Curses as Curses (Key(..), initScr, echo, endWin, getCh)
 
 import Vim.Position as Position
 import Vim.IOUtil
@@ -102,8 +102,8 @@ processCommand "dd" ls pos = (Command, Do, deleteLine ls pos)
 processCommand "x"  ls pos = (Command, Do, deleteCharacter ls pos)
 processCommand "D"  ls pos = (Command, Do, deleteToEndOfLine ls pos)
 
-processCommand "0"  ls (Position x y) = (Command, Ignore, (ls, (Position 0 y)))
-processCommand "$"  ls (Position x y) = (Command, Ignore, (ls, newPos))
+processCommand "0"  ls (Position _ y) = (Command, Ignore, (ls, (Position 0 y)))
+processCommand "$"  ls (Position _ y) = (Command, Ignore, (ls, newPos))
                                where currentLine = ls !! y
                                      newPos      = (Position (length currentLine) y)
 

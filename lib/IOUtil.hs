@@ -1,8 +1,7 @@
 
 module Vim.IOUtil where
 
-import System.IO
-import UI.HSCurses.Curses as Curses
+import UI.HSCurses.Curses as Curses (wclear, stdScr, mvWAddStr, refresh, scrSize, move)
 
 import Vim.Position
 import Vim.Mode

@@ -1,7 +1,8 @@
 .PHONY: vim clean
 
 vim:
-	ghc -Wall -outputdir rubbish --make Vim.hs -o vim
+	ghc -Wall -outputdir rubbish -c lib/* --make Vim.hs -o vim
 
 clean:
-	rm -rf vim ./rubbish debug.log
+	rm vim debug.log
+	rm -rf ./rubbish
