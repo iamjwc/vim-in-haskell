@@ -5,9 +5,8 @@
 
 module Vim.IOUtil where
 
-import UI.HSCurses.Curses as Curses (wclear, stdScr, mvWAddStr, refresh, scrSize, move, Pair(..), setBold, attr0, wAttrSet, wAttrGet, attrOn, attrBold, wAttrOn, attrBoldOn, beep)
-
-import System.Console.Terminfo.PrettyPrint (ring, Bell(..))
+import UI.HSCurses.Curses as Curses (wclear, stdScr, mvWAddStr, refresh, scrSize, move, Pair(..), setBold, attr0, wAttrSet, wAttrGet, attrOn, attrBold, wAttrOn, attrBoldOn, beep, startColor, initPair, Pair(..))
+import UI.HSCurses.CursesHelper as CursesHelper
 
 import Vim.Position
 import Vim.Mode
@@ -23,13 +22,26 @@ attrCrazyCharacters :: Int
 attrCrazyCharacters = 4194304
 
 updateScreen :: Mode -> Lines -> Position -> IO ()
-updateScreen mode ls (Position x y) = do Curses.wclear Curses.stdScr
-                                         Curses.mvWAddStr Curses.stdScr 0 0 (unlines ls)
-                                         statusBar mode (Position x y)
-                                         case mode of
-                                           ColonCommand _ -> return ()
-                                           _              -> Curses.move y x
-                                         Curses.refresh
+updateScreen mode ls (Position x y) = do
+  Curses.wclear Curses.stdScr
+  -- Curses.startColor
+  -- Curses.initPair (Curses.Pair 1) (CursesHelper.black) (CursesHelper.white)
+  Curses.mvWAddStr Curses.stdScr 0 0 ((unlines . map (paddingSpaces++)) ls)
+  statusBar mode (Position x y)
+  case mode of
+    ColonCommand _ -> return ()
+    _              -> Curses.move y $ x + pad
+  Curses.refresh
+  where
+    paddingSpaces = replicate pad ' '
+    pad           = padding $ length ls
+
+
+padding :: Int -> Int
+padding n
+  | n < 100   = 4
+  | n < 1000  = 5
+  | otherwise = 6
 
 statusBar :: Mode -> Position -> IO ()
 statusBar Command (Position x y) = do (height,width) <- Curses.scrSize
