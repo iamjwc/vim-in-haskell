@@ -1,7 +1,7 @@
 .PHONY: vim clean
 
 vim:
-	ghc -Wall -outputdir rubbish -c lib/* --make Vim.hs -o vim
+	ghc -Wall -outputdir rubbish --make Vim.hs -o vim-in-haskell
 
 clean:
 	rm vim debug.log
