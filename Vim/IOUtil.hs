@@ -27,6 +27,7 @@ updateScreen mode ls (Position x y) = do
   -- Curses.startColor
   -- Curses.initPair (Curses.Pair 1) (CursesHelper.black) (CursesHelper.white)
   Curses.mvWAddStr Curses.stdScr 0 0 ((unlines . map (paddingSpaces++)) ls)
+  drawGutter ls pad 1
   statusBar mode (Position x y)
   case mode of
     ColonCommand _ -> return ()
@@ -35,6 +36,27 @@ updateScreen mode ls (Position x y) = do
   where
     paddingSpaces = replicate pad ' '
     pad           = padding $ length ls
+
+
+drawGutter :: Lines -> Int -> Int -> IO ()
+drawGutter ls pad start = do
+  (height, _) <- Curses.scrSize
+  mapM_ (printGutter) [start..(min (height-start) lineCount)]
+  if (height > lineCount)
+    then mapM_ (printEmpty) [lineCount+1..height]
+    else return ()
+  where
+    lineCount     = length ls
+    printGutter y = printAt y $ padded (show y) pad
+    printEmpty  y = printAt y "~"
+    printAt y str = Curses.mvWAddStr Curses.stdScr (y-1) 0 str
+
+padded :: String -> Int -> String
+padded s padLen = paddingSpaces ++ s
+  where
+    sLen = length s
+    paddingSpaces = replicate (padLen-1-sLen) ' '
+        -- We remove 1 for the space of padding in the gutter on the right side
 
 
 padding :: Int -> Int
