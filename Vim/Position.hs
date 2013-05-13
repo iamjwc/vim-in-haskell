@@ -7,7 +7,7 @@ import Vim.Mode
 type Line     = String
 type Lines    = [Line]
 
-data Position  = Position Int Int
+data Position  = Position Int Int deriving (Eq, Show)
 data Direction = Up | Down | Left | Right
 
 move :: Position -> Direction -> Position

@@ -10,7 +10,7 @@ import Data.Char
 import Debug.Trace
 --(isAlphaNum)
 
-import UI.HSCurses.Curses as Curses (Key(..), initScr, echo, endWin, getCh)
+import UI.HSCurses.Curses as Curses (Key(..), Attr(..), initScr, echo, endWin, getCh, setInvis, attr0, beep)
 
 import Vim.Position as Position
 import Vim.IOUtil
@@ -183,13 +183,19 @@ colonCommandMode cmd ls pos history = do updateScreen (ColonCommand cmd) ls pos
 commandMode :: Lines -> Position -> History -> IO ()
 commandMode [] _   history = commandMode [""] (Position 0 0) history
 commandMode ls pos []      = commandMode ls pos [(ls,pos)]
-commandMode ls pos history = do updateScreen Command ls pos
-                                log $ show $ map (fst) history
-                                cmd <- getCommand ""
-                                case determineNewPath cmd ls pos history of
-                                  (Insert,           newLs, newPos, newHistory) -> insertMode newLs newPos newHistory
-                                  (Command,          newLs, newPos, newHistory) -> commandMode newLs newPos newHistory
-                                  (ColonCommand cmd, newLs, newPos, newHistory) -> colonCommandMode cmd newLs newPos newHistory
+commandMode ls pos history = do
+  updateScreen Command ls pos
+  log $ show $ map (fst) history
+  cmd <- getCommand ""
+  case determineNewPath cmd ls pos history of
+    (Insert,           newLs, newPos, newHistory) -> insertMode newLs newPos newHistory
+    (Command,          newLs, newPos, newHistory) -> do
+      -- If pos didnt get updated, its because the command was invalid
+      if pos == newPos
+        then Curses.beep >> return ()
+        else return ()
+      commandMode newLs newPos newHistory
+    (ColonCommand cmd, newLs, newPos, newHistory) -> colonCommandMode cmd newLs newPos newHistory
 
 insertMode :: Lines -> Position -> History -> IO ()
 insertMode ls cursorPos history = do updateScreen Insert ls cursorPos
@@ -208,12 +214,12 @@ insertMode ls cursorPos history = do updateScreen Insert ls cursorPos
 
 
 start :: IO ()
-start  = do Curses.initScr
-            -- Curses.keypad Curses.stdScr True
-            -- Curses.nl False
-            -- Curses.cBreak True
-            Curses.echo False
-            return ()
+start  = do
+  _ <- Curses.initScr
+  -- Curses.keypad Curses.stdScr True
+  -- Curses.nl False
+  -- Curses.cBreak True
+  Curses.echo False
 
 end :: IO ()
 end  = do Curses.endWin
